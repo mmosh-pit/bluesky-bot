@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"math"
 	"net/http"
 )
 
@@ -50,18 +51,22 @@ func HandleBotTagged(text string, post Post, cid, path string) {
 
 	token, err := getToken()
 
-	log.Printf("Path: %v\n CID: %v\n", path, cid)
+  resultingText := string(responseBody)
 
-	postId := post.Facets[len(post.Facets)-1].Features[len(post.Facets[len(post.Facets)-1].Features)-1].Did
+  total := math.Round(float64(len(resultingText)) / 300.00)
 
 	resource := &CreateRecordProps{
 		DIDResponse: token,
 		Resource:    "app.bsky.feed.post",
 		URI:         path,
 		CID:         cid,
-		Text:        string(responseBody),
-		PostId:      postId,
+		Text:        resultingText,
+		PostId:      post.DID,
+    Index: 1,
+    Total: int(total),
 	}
+
+  log.Printf("Gonna create post")
 
 	err = createRecord(resource)
 	if err != nil {

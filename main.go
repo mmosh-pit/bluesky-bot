@@ -80,7 +80,7 @@ func Websocket() error {
 			for _, op := range evt.Ops {
 				if op.Action == "create" {
 					if len(evt.Blocks) > 0 {
-						err := handleCARBlocks(evt.Blocks, op)
+						err := handleCARBlocks(evt.Blocks, op, evt.Repo)
 						if err != nil {
 							slog.Error("Error handling CAR blocks", "error", err)
 							return err
@@ -93,7 +93,7 @@ func Websocket() error {
 	return nil
 }
 
-func handleCARBlocks(blocks []byte, op bot.RepoOperation) error {
+func handleCARBlocks(blocks []byte, op bot.RepoOperation, did string) error {
 	if len(blocks) == 0 {
 		return errors.New("no blocks to process")
 	}
@@ -118,25 +118,30 @@ func handleCARBlocks(blocks []byte, op bot.RepoOperation) error {
 			if cidBytes, ok := opTag.Content.([]byte); ok {
 				c, err := decodeCID(cidBytes)
 				if err != nil {
-					slog.Error("Error decoding CID from bytes", "error", err)
 					continue
 				}
 
 				if block.Cid().Equals(c) {
 					var post bot.Post
 
+          var test map[string]interface{}
+
 					err := cbor.Unmarshal(block.RawData(), &post)
 
+          _ = cbor.Unmarshal(block.RawData(), &test)
+
 					if err != nil {
-						slog.Error("Error decoding CBOR block", "error", err)
 						continue
 					}
+
 
 					text := post.Text
 
 					if strings.Contains(text, BOT_NAME) {
 
 						resultingText := strings.ReplaceAll(text, BOT_NAME, "")
+
+            post.DID = did
 
 						bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path)
 					}

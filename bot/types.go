@@ -40,6 +40,7 @@ type Root struct {
 }
 
 type Post struct {
+  DID string `json:"did"`
 	Type      string          `json:"$type"`
 	CreatedAt time.Time       `json:"createdAt"`
 	Facets    []RichTextFacet `json:"facets"`
