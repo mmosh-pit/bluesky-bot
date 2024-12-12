@@ -9,5 +9,6 @@ FROM alpine:latest AS app
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /builder/bsky-bot-app ./bsky-bot-app
+COPY --from=builder /builder/.env ./.env
 EXPOSE 8000
 CMD ["./bsky-bot-app"]

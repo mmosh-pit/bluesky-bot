@@ -1,6 +1,2 @@
 .gitignore
-
-.git
-.git*
-
 deploy.sh
