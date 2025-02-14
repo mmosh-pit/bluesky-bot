@@ -8,18 +8,28 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+
+	"github.com/mmosh-pit/kinship-bsky-bot/db"
 )
 
 const url = "https://mmoshapi-471939176450.us-central1.run.app/generate/"
 
-func HandleBotTagged(text string, post Post, cid, path string) {
+func HandleBotTagged(text string, post Post, cid, path, projectKey, identifier, password string) {
 	client := http.Client{}
 
 	body := map[string]any{
 		"username":   "Visitor",
 		"prompt":     text,
-		"namespaces": []string{"PUBLIC"},
+		"namespaces": []string{"PUBLIC", projectKey},
 		"metafield":  "",
+	}
+
+	if projectKey != "" {
+		systemPrompt, err := db.GetProjectSystemPrompt(projectKey)
+
+		if err == nil {
+			body["system_prompt"] = systemPrompt
+		}
 	}
 
 	encoded, err := json.Marshal(body)
@@ -49,11 +59,11 @@ func HandleBotTagged(text string, post Post, cid, path string) {
 
 	responseBody, _ := io.ReadAll(res.Body)
 
-	token, err := getToken()
+	token, err := getToken(identifier, password)
 
-  resultingText := string(responseBody)
+	resultingText := string(responseBody)
 
-  total := math.Round(float64(len(resultingText)) / 300.00)
+	total := math.Round(float64(len(resultingText)) / 300.00)
 
 	resource := &CreateRecordProps{
 		DIDResponse: token,
@@ -62,11 +72,11 @@ func HandleBotTagged(text string, post Post, cid, path string) {
 		CID:         cid,
 		Text:        resultingText,
 		PostId:      post.DID,
-    Index: 1,
-    Total: int(total),
+		Index:       1,
+		Total:       int(total),
 	}
 
-  log.Printf("Gonna create post")
+	log.Printf("Gonna create post")
 
 	err = createRecord(resource)
 	if err != nil {

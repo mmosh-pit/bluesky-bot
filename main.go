@@ -8,16 +8,21 @@ import (
 	"log"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/joho/godotenv"
 	"github.com/mmosh-pit/kinship-bsky-bot/bot"
+	"github.com/mmosh-pit/kinship-bsky-bot/db"
 )
 
 const BOT_NAME = "@kinshipbot.bsky.social"
+
+var botsHandle = map[string]db.ToolData{}
 
 func main() {
 	slog.Info("Starting bot")
@@ -26,7 +31,12 @@ func main() {
 		slog.Error("Error loading .env file")
 	}
 
+	db.InitializeMongoConnection()
+
+	go updatingBotsCron()
+
 	err = Websocket()
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,16 +134,15 @@ func handleCARBlocks(blocks []byte, op bot.RepoOperation, did string) error {
 				if block.Cid().Equals(c) {
 					var post bot.Post
 
-          var test map[string]interface{}
+					var test map[string]interface{}
 
 					err := cbor.Unmarshal(block.RawData(), &post)
 
-          _ = cbor.Unmarshal(block.RawData(), &test)
+					_ = cbor.Unmarshal(block.RawData(), &test)
 
 					if err != nil {
 						continue
 					}
-
 
 					text := post.Text
 
@@ -141,9 +150,26 @@ func handleCARBlocks(blocks []byte, op bot.RepoOperation, did string) error {
 
 						resultingText := strings.ReplaceAll(text, BOT_NAME, "")
 
-            post.DID = did
+						post.DID = did
 
-						bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path)
+						bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path, "", "", "")
+
+						continue
+					}
+
+					for _, value := range botsHandle {
+
+						botName := fmt.Sprintf("@%s", value.Data.Handle)
+
+						if strings.Contains(text, botName) {
+							resultingText := strings.ReplaceAll(text, botName, "")
+
+							post.DID = did
+
+							bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path, value.Project, value.Data.Handle, value.Data.Password)
+
+							break
+						}
 					}
 				}
 			}
@@ -161,4 +187,58 @@ func decodeCID(cidBytes []byte) (cid.Cid, error) {
 	}
 
 	return c, nil
+}
+
+func updatingBotsCron() {
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		log.Fatalf("Could not create the cron Scheduler: %v\n", err)
+	}
+
+	log.Println("Calling here")
+
+	// add a job to the scheduler
+	_, err = s.NewJob(
+		gocron.DurationJob(
+			5*time.Minute,
+		),
+		gocron.NewTask(
+			func() {
+				log.Println("Executing...")
+
+				accounts, err := db.GetConnectedBskyAccounts()
+
+				if err != nil {
+					log.Printf("Got error trying to retreive accounts: %v\n", err)
+					return
+				}
+
+				updatedHandles := map[string]db.ToolData{}
+
+				for _, value := range accounts {
+					updatedHandles[value.Data.Handle] = value
+				}
+
+				botsHandle = updatedHandles
+				log.Printf("Updated handles: %v\n", botsHandle)
+			},
+		),
+	)
+
+	if err != nil {
+
+		log.Fatalf("Could not start the cron Scheduler: %v\n", err)
+	}
+	// start the scheduler
+	s.Start()
+
+	// block until you are ready to shut down
+	select {}
+
+	// when you're done, shut it down
+	// log.Println("Shutting down???")
+	// err = s.Shutdown()
+	// if err != nil {
+	// 	log.Fatalf("Could not shutdown the cron Scheduler: %v\n", err)
+	// }
 }

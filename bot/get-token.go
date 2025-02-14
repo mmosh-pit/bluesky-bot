@@ -41,10 +41,19 @@ type DIDResponse struct {
 	Active          bool   `json:"active"`
 }
 
-func getToken() (*DIDResponse, error) {
+func getToken(identifier, password string) (*DIDResponse, error) {
+
+	if identifier == "" {
+		identifier = os.Getenv("BLUESKY_IDENTIFIER")
+	}
+
+	if password == "" {
+		password = os.Getenv("BLUESKY_PASSWORD")
+	}
+
 	requestBody, err := json.Marshal(map[string]string{
-		"identifier": os.Getenv("BLUESKY_IDENTIFIER"),
-		"password":   os.Getenv("BLUESKY_PASSWORD"),
+		"identifier": identifier,
+		"password":   password,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
