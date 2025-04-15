@@ -152,7 +152,7 @@ func handleCARBlocks(blocks []byte, op bot.RepoOperation, did string) error {
 
 						post.DID = did
 
-						bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path, "", "", "")
+						bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path, "", "", "", "", "")
 
 						continue
 					}
@@ -164,9 +164,11 @@ func handleCARBlocks(blocks []byte, op bot.RepoOperation, did string) error {
 						if strings.Contains(text, botName) {
 							resultingText := strings.ReplaceAll(text, botName, "")
 
+							log.Printf("Gonna send with bot: %v\n", value)
+
 							post.DID = did
 
-							bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path, value.Project, value.Data.Handle, value.Data.Password)
+							bot.HandleBotTagged(resultingText, post, block.Cid().String(), op.Path, value.Project, value.Data.Handle, value.Data.Password, value.Data.Instructions, value.FounderUsername)
 
 							break
 						}
@@ -194,8 +196,6 @@ func updatingBotsCron() {
 	if err != nil {
 		log.Fatalf("Could not create the cron Scheduler: %v\n", err)
 	}
-
-	log.Println("Calling here")
 
 	// add a job to the scheduler
 	_, err = s.NewJob(
